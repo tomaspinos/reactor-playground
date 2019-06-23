@@ -26,6 +26,7 @@ public class PublishOnSubscribeOn {
         Scheduler fromJsonScheduler = Schedulers.newParallel("fromJson", 4);
         Scheduler criticalSectionScheduler = Schedulers.newSingle("criticalSection");
         Scheduler toJsonScheduler = Schedulers.newParallel("toJson", 4);
+        Scheduler dispatchScheduler = Schedulers.newSingle("dispatch");
 
         Flux<String> commands = Flux.range(0, COUNT).map(String::valueOf);
 
@@ -33,7 +34,11 @@ public class PublishOnSubscribeOn {
                 .publishOn(criticalSectionScheduler)
                 .map(this::doSomethingInCriticalSection)
                 .flatMap(result -> toJson(result).subscribeOn(toJsonScheduler))
-                .subscribe(item -> latch.countDown());
+                .publishOn(dispatchScheduler)
+                .subscribe(item -> {
+                    logThreadAndItem(null);
+                    latch.countDown();
+                });
 
         latch.await();
 
